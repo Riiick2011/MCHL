@@ -2,7 +2,7 @@
 Project for Paper "Online Hierarchical Linking of Action Tubes for Spatio-Temporal Action Detection Based on Multiple Clues"
 
 ## Overview of MCHL
-![image](img_files/mchl.jpg)
+![image](./MCHL.png)
 
 ## MCHL Code Location
 .evaluator/link_method.py
