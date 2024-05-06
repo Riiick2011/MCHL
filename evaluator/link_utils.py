@@ -291,8 +291,8 @@ def ApproxMultiscanJPDAProbabilities(M, obj_info):
     return Final_probabilty
 
 
-# MCCLA算法的帧级检测类
-class MCCLADet(object):
+# MCHL算法的帧级检测类
+class MCHLDet(object):
     def __init__(self, frame_id, det, conf, score, ori_img=None):
         if ori_img is not None:  # 如果使用原始图片，则det是一个1维数组
             self.bbox = det  # x1y1x2y2
@@ -326,7 +326,7 @@ class MCCLADet(object):
         return ret
 
 
-class MCCLATube(object):
+class MCHLTube(object):
     def __init__(self, frame_id, det, tube_index):
         """
         :param frame_id: int
@@ -403,7 +403,7 @@ class MCCLATube(object):
              self.det_list_interpolated], axis=-1)  # det(5,) ->det(6,)
 
 
-# 用于MCCLA中展示gt
+# 用于MCHL中展示gt
 def compare_with_gt():
     videolist = []
     with open('/media/su/d/datasets/UCF24-YOWO/testlist_video.txt', 'r') as file:
@@ -443,7 +443,7 @@ def compare_with_gt():
                 all_gt_boxes.append(np.array(gt_one_tube))  # 包含管道个数项，每一项是一个数组
 
 
-def cascade_MCCLA(tube_list, dets_frame, frame_id, use_score_dist=True, tube_active=True):
+def cascade_MCHL(tube_list, dets_frame, frame_id, use_score_dist=True, tube_active=True):
     tube_num = len(tube_list)
     det_num = len(dets_frame)
     mass_list = []  # 存放当前帧的管道关联情况 每一项是一个Mass类对象，对应一个管道的字典

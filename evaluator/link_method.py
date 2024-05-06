@@ -6,7 +6,7 @@ import torch
 
 from utils.utils import bbox_iou, nms_3d
 from evaluator.link_utils import compute_score_one_class, ROADTube, ROAD_temporal_trim, Mass, dist_center, OJLATube, \
-    ApproxMultiscanJPDAProbabilities, MCCLADet, MCCLATube, compare_with_gt, cascade_MCCLA
+    ApproxMultiscanJPDAProbabilities, MCHLDet, MCHLTube, compare_with_gt, cascade_MCHL
 from copy import deepcopy
 import cv2
 
@@ -80,7 +80,7 @@ def tube_link(all_dets, num_classes, videolist, link_method='viterbi', video_roo
                     for tube_cls_video in tubes_cls_video:
                         video_det_pkl[cls_idx].append((video_name, tube_cls_video[0], tube_cls_video[1]))
                         # 每一项是一个元组(video_name, tube_score, tube_bboxes) 对应一个tube
-    elif link_method == 'mccla':
+    elif link_method == 'mchl':
         img_folder = None
         for video_id, dets_video in all_dets.items():  # 对于每个视频的帧级检测结果
             video_name = videolist[video_id]
@@ -93,7 +93,7 @@ def tube_link(all_dets, num_classes, videolist, link_method='viterbi', video_roo
             dets_video = dets_video['multi_class']  # 一个列表，该视频关于的检测结果，列表内是多个数组，每个数组对应一帧，第二个维度是6+num_classes
             # 类别得分用置信度修正过了 后续不使用置信度
             # dets_cls_video = np.concatenate(dets_cls_video, axis=0)  # array [n_box,6]
-            tubes_video = MCCLA_link(dets_video, multilabel=True, num_classes=num_classes, img_folder=img_folder)  # 默认采用效果更好的multilabel模式
+            tubes_video = MCHL_link(dets_video, multilabel=True, num_classes=num_classes, img_folder=img_folder)  # 默认采用效果更好的multilabel模式
             # tubes_cls_video是元组构成的列表[(tube_score,tube_bboxes),...]
             # 每个元组对应一个管道，包含两项：tube_score(float)和tube_bboxes(array)
             # tube_bboxes数组的形状是(tube_length,6:(frame_id,bboxs,score))
@@ -388,7 +388,7 @@ def OJLA_link(dets, multilabel=False, num_classes=24):
 
 
 # 级联
-def MCCLA_link(dets, multilabel=False, num_classes=24, img_folder=None):
+def MCHL_link(dets, multilabel=False, num_classes=24, img_folder=None):
     # dets是一个list,每一项对应一帧，是形状为[n_box,6+num_classes]的数组  该视频的所有帧级别检测
     # [frame_id,bboxes,score，cls_score]
 
@@ -423,7 +423,7 @@ def MCCLA_link(dets, multilabel=False, num_classes=24, img_folder=None):
         # 提取外观特征，构建带有外观特征的帧级检测实例
         if img_folder:
             ori_img = cv2.imread(img_folder + '/{:05d}.jpg'.format(frame_id)).transpose(1, 0, 2)  # HWC->WHC  BGR
-            dets_frame = [MCCLADet(frame_id, dets_frame[i], confs_frame[i], scores_frame[i], ori_img=ori_img) for i in range(len(dets_frame))]
+            dets_frame = [MCHLDet(frame_id, dets_frame[i], confs_frame[i], scores_frame[i], ori_img=ori_img) for i in range(len(dets_frame))]
             for det in dets_frame:
                 if not det.valid:
                     print(img_folder)
@@ -431,21 +431,21 @@ def MCCLA_link(dets, multilabel=False, num_classes=24, img_folder=None):
         else:  # 如果不给定图片文件夹，则说明det中包含了检测模型提取的中间特征
             dets_frame = [{}]
             dets_frame = \
-                [MCCLADet(frame_id, dets_frame[i], confs_frame[i], scores_frame[i]) for i in range(len(dets_frame))]
+                [MCHLDet(frame_id, dets_frame[i], confs_frame[i], scores_frame[i]) for i in range(len(dets_frame))]
 
         # 第一级 关联活着的管道    之前暂时漏检的管道还是可以与没漏检的管道竞争
         # 计算每个活着的管道与每个检测之间的得分和损失
         tube_active_list = [tube for tube in tube_list if tube.active == 1]  # 活着的管道的索引列表
         tube_suspect_list = [tube for tube in tube_list if tube.active == 2]  # 可疑的管道的索引列表
-        dets_frame = cascade_MCCLA(tube_active_list, dets_frame, frame_id, use_score_dist, tube_active=True)
+        dets_frame = cascade_MCHL(tube_active_list, dets_frame, frame_id, use_score_dist, tube_active=True)
 
         # 第二级 关联可疑管道  调整可疑管道的cost 增加了iou权重
-        dets_frame = cascade_MCCLA(tube_suspect_list, dets_frame, frame_id, use_score_dist, tube_active=False)
+        dets_frame = cascade_MCHL(tube_suspect_list, dets_frame, frame_id, use_score_dist, tube_active=False)
 
         # 第三级 对于与所有管道的门控距离均超过阈值(那么肯定没有进行关联)并且最高类别得分高于0.1的检测框，则初始化管道
         dets_frame = [det for det in dets_frame if np.max(det.score) > 0.1]
         for det in dets_frame:
-            tube = MCCLATube(frame_id, det, len(tube_list))
+            tube = MCHLTube(frame_id, det, len(tube_list))
             tube_list.append(tube)
 
     # 管道长度过滤、多标签管道复制

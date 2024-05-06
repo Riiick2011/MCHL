@@ -51,7 +51,7 @@ class UCF_JHMDB_Evaluator(object):  # 评估器类
         self.link_method = link_method
         self.videolist = []  # 存放测试集的视频文件名
         self.det_save_type = args.det_save_type  # 当计算v-mAP并且关联算法是多类别算法时 det_save_type会变为'multi_class'
-        # 只用于video mAP的MCCLA算法
+        # 只用于video mAP的MCHL算法
         self.video_root = None
         if not bbox_with_feat:
             self.video_root = os.path.join(self.data_root, 'rgb-images')  # 视频的根目录
